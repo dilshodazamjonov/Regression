@@ -29,7 +29,3 @@ dist/
 # Git LFS tracked files (you already use this)
 *.h5
 *.zip
-*.csv
-*.tar.gz
-*.pt
-*.parquet
