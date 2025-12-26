@@ -1,0 +1,195 @@
+WITH balance_base AS (
+    SELECT
+        inn,
+        report_date,
+
+        -- base fields
+        total_assets,
+        total_section_ii_assets,
+        total_section_i_equity,
+        total_section_ii_liabilities,
+        long_term_liabilities,
+        current_liabilities,
+        long_term_bank_loans,
+        short_term_bank_loans,
+        long_term_borrowings,
+        short_term_borrowings,
+        long_term_payables,
+        current_portion_long_term_liabilities,
+        total_inventories,
+        receivables_total,
+        cash_total,
+        current_payables_included,
+        carrying_amount,
+        ppe_book_value,
+        accumulated_depreciation,
+        long_term_investments,
+        capital_investments,
+        production_inventories,
+        work_in_progress,
+        finished_goods,
+        goods_for_resale,
+        overdue_receivables,
+        payable_taxes_budget,
+        deferred_tax_and_mandatory_payables,
+        share_capital,
+        additional_paid_in_capital,
+        reserve_capital,
+        retained_earnings,
+        total_equity_and_liabilities,
+        counter_total_assets,
+        counter_total_section_i_equity,
+        counter_total_section_ii_liabilities,
+        counter_ppe_book_value,
+        observation_date,
+        report_sent_date,
+        report_month,
+        total_assets_lag1,
+        total_section_i_equity_lag1,
+        receivables_total_lag1,
+        cash_total_lag1,
+        current_liabilities_lag1,
+        short_term_bank_loans_lag1, 
+        overdue_current_payables_lag1,
+        total_assets_lag3,
+        total_section_i_equity_lag3,
+        receivables_total_lag3,
+        cash_total_lag3,
+        current_liabilities_lag3,
+        short_term_bank_loans_lag3,
+        overdue_current_payables_lag3,
+        long_term_bank_loans_lag1,
+        total_section_ii_assets_lag1,
+        total_section_ii_assets_lag3
+    FROM db
+)
+SELECT
+    inn,
+    report_date,
+
+    LN(1 + ABS(total_assets)) AS log_total_assets,
+    LN(1 + ABS(total_section_ii_assets)) AS log_current_assets,
+    LN(1 + ABS(total_section_i_equity)) AS log_equity,
+    LN(1 + ABS(total_section_ii_liabilities)) AS log_total_liabilities,
+
+    total_section_i_equity / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS equity_to_assets_ratio,
+    total_section_ii_liabilities / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS liabilities_to_assets,
+    total_section_i_equity / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS non_current_assets_to_assets,
+    total_section_ii_assets / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS current_assets_to_assets,
+    (total_section_i_equity - total_section_ii_liabilities) / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS equity_minus_liabilities_to_assets,
+    total_section_ii_liabilities / CASE WHEN total_section_i_equity = 0 THEN 1 ELSE total_section_i_equity END AS debt_to_equity_ratio,
+    long_term_liabilities / CASE WHEN total_section_i_equity = 0 THEN 1 ELSE total_section_i_equity END AS long_term_debt_to_equity,
+    current_liabilities / CASE WHEN total_section_i_equity = 0 THEN 1 ELSE total_section_i_equity END AS current_liabilities_to_equity,
+    current_liabilities / CASE WHEN total_section_ii_liabilities = 0 THEN 1 ELSE total_section_ii_liabilities END AS current_liabilities_to_liabilities,
+    long_term_liabilities / CASE WHEN total_section_ii_liabilities = 0 THEN 1 ELSE total_section_ii_liabilities END AS long_term_liabilities_to_liabilities,
+    
+    long_term_bank_loans + short_term_bank_loans AS bank_loans_total,
+    (long_term_bank_loans + short_term_bank_loans) / CASE WHEN total_section_ii_liabilities = 0 THEN 1 ELSE total_section_ii_liabilities END AS bank_loans_to_liabilities,
+    (long_term_bank_loans + short_term_bank_loans) / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS bank_loans_to_assets,
+    
+    long_term_borrowings + short_term_borrowings AS borrowings_total,
+    (long_term_borrowings + short_term_borrowings) / CASE WHEN total_section_ii_liabilities = 0 THEN 1 ELSE total_section_ii_liabilities END AS borrowings_to_liabilities,
+    (long_term_borrowings + short_term_borrowings) / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS borrowings_to_assets,
+    
+    long_term_payables / CASE WHEN long_term_liabilities = 0 THEN 1 ELSE long_term_liabilities END AS long_term_payables_share_long_term_liab,
+    current_portion_long_term_liabilities / CASE WHEN long_term_liabilities = 0 THEN 1 ELSE long_term_liabilities END AS current_portion_ltd_to_long_term_liabilities,
+    short_term_bank_loans / CASE WHEN (long_term_bank_loans + short_term_bank_loans) = 0 THEN 1 ELSE (long_term_bank_loans + short_term_bank_loans) END AS short_term_bank_to_total_bank_loans,
+    short_term_borrowings / CASE WHEN (long_term_borrowings + short_term_borrowings) = 0 THEN 1 ELSE (long_term_borrowings + short_term_borrowings) END AS short_term_borrowings_to_total_borrowings,
+    
+    total_section_ii_assets / CASE WHEN current_liabilities = 0 THEN 1 ELSE current_liabilities END AS current_ratio,
+    (total_section_ii_assets - total_inventories) AS quick_assets,
+    (total_section_ii_assets - total_inventories) / CASE WHEN current_liabilities = 0 THEN 1 ELSE current_liabilities END AS quick_ratio,
+    cash_total / CASE WHEN current_liabilities = 0 THEN 1 ELSE current_liabilities END AS cash_ratio,
+    (total_section_ii_assets - current_liabilities) AS working_capital,
+    (total_section_ii_assets - current_liabilities) / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS working_capital_to_assets_ratio,
+    total_inventories / CASE WHEN total_section_ii_assets = 0 THEN 1 ELSE total_section_ii_assets END AS inventory_to_current_assets_ratio,
+    receivables_total / CASE WHEN total_section_ii_assets = 0 THEN 1 ELSE total_section_ii_assets END AS receivables_to_current_assets_ratio,
+    cash_total / CASE WHEN total_section_ii_assets = 0 THEN 1 ELSE total_section_ii_assets END AS cash_to_current_assets_ratio,
+    current_payables_included / CASE WHEN current_liabilities = 0 THEN 1 ELSE current_liabilities END AS current_payables_to_current_liabilities_ratio,
+    carrying_amount / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS ppe_to_assets,
+    ppe_book_value / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS ppe_book_to_assets,
+    accumulated_depreciation / CASE WHEN ppe_book_value = 0 THEN 1 ELSE ppe_book_value END AS accumulated_depreciation_to_ppe_book,
+    long_term_investments / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS long_term_investments_to_assets,
+    capital_investments / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS capital_investments_to_assets,
+    total_inventories / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS inventories_to_assets,
+    receivables_total / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS receivables_to_assets,
+    cash_total / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS cash_to_assets,
+    production_inventories / CASE WHEN total_inventories = 0 THEN 1 ELSE total_inventories END AS production_inventories_to_inventories,
+    work_in_progress / CASE WHEN total_inventories = 0 THEN 1 ELSE total_inventories END AS wip_to_inventories,
+    finished_goods / CASE WHEN total_inventories = 0 THEN 1 ELSE total_inventories END AS finished_goods_to_inventories,
+    goods_for_resale / CASE WHEN total_inventories = 0 THEN 1 ELSE total_inventories END AS goods_for_resale_to_inventories,
+    overdue_receivables / CASE WHEN receivables_total = 0 THEN 1 ELSE receivables_total END AS overdue_reveivables_to_receivables,
+    overdue_receivables / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS overdue_reveivables_to_assets,
+    overdue_current_payables / CASE WHEN current_payables_included = 0 THEN 1 ELSE current_payables_included END AS overdue_payables_to_current_payables,
+    overdue_current_payables / CASE WHEN total_section_ii_liabilities = 0 THEN 1 ELSE total_section_ii_liabilities END AS overdue_payables_to_liabilities,
+    payable_taxes_budget / CASE WHEN total_section_ii_liabilities = 0 THEN 1 ELSE total_section_ii_liabilities END AS tax_payables_to_liabilities,
+    payable_taxes_budget / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS tax_payables_to_assets,
+    deferred_tax_and_mandatory_payables / CASE WHEN total_section_ii_liabilities = 0 THEN 1 ELSE total_section_ii_liabilities END AS deferred_tax_mandatory_to_liabilities,
+    deferred_tax_and_mandatory_payables / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS deferred_tax_mandatory_to_assets,
+    short_term_bank_loans / CASE WHEN total_section_ii_liabilities = 0 THEN 1 ELSE total_section_ii_liabilities END AS short_term_bank_loans_to_total_liabilities,
+    short_term_borrowings / CASE WHEN total_section_ii_liabilities = 0 THEN 1 ELSE total_section_ii_liabilities END AS short_term_borrowings_to_total_liabilities,
+    share_capital / CASE WHEN total_section_i_equity = 0 THEN 1 ELSE total_section_i_equity END AS share_capital_to_equity,
+    additional_paid_in_capital / CASE WHEN total_section_i_equity = 0 THEN 1 ELSE total_section_i_equity END AS additional_paid_in_capital_to_equity,
+    reserve_capital / CASE WHEN total_section_i_equity = 0 THEN 1 ELSE total_section_i_equity END AS reserves_to_equity,
+    retained_earnings / CASE WHEN total_section_i_equity = 0 THEN 1 ELSE total_section_i_equity END AS retained_earnings_to_equity,
+    retained_earnings / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS retained_earnings_to_assets,
+    total_section_i_equity / CASE WHEN total_equity_and_liabilities = 0 THEN 1 ELSE total_equity_and_liabilities END AS equity_to_total_equity_and_liabilities,
+    total_section_ii_liabilities / CASE WHEN total_equity_and_liabilities = 0 THEN 1 ELSE total_equity_and_liabilities END AS liabilities_to_total_equity_and_liabilities,
+    total_assets - total_equity_and_liabilities AS balance_sheet_gap,
+    (total_assets - total_equity_and_liabilities) / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS balance_sheet_gap_to_assets,
+    ABS(total_assets - total_equity_and_liabilities) / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS abs_balance_sheet_gap_to_assets,
+    total_assets + counter_total_assets AS counter_total_assets_gap,
+    total_section_i_equity + counter_total_section_i_equity AS counter_equity_gap,
+    total_section_ii_liabilities + counter_total_section_ii_liabilities AS counter_liabilities_gap,
+    ppe_book_value + counter_ppe_book_value AS counter_ppe_gap,
+    DATEDIFF(observation_date, report_sent_date) AS fs_age_days,
+    DATEDIFF(observation_date, report_sent_date) / 30.0 AS fs_age_months,
+    SIN(2 * PI() * report_month / 12.0) AS report_month_sin,
+    COS(2 * PI() * report_month / 12.0) AS report_month_cos,
+    
+    short_term_bank_loans + short_term_borrowings + current_portion_long_term_liabilities AS current_debt_total,
+    (short_term_bank_loans + short_term_borrowings + current_portion_long_term_liabilities) / CASE WHEN total_section_ii_liabilities = 0 THEN 1 ELSE total_section_ii_liabilities END AS current_debt_to_liabilities,
+    (short_term_bank_loans + short_term_borrowings + current_portion_long_term_liabilities) / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS current_debt_to_assets,
+    
+    (total_assets - total_assets_lag1) / CASE WHEN ABS(total_assets_lag1) = 0 THEN 1 ELSE ABS(total_assets_lag1) END AS total_assets_mom_growth,
+    (total_section_i_equity - total_section_i_equity_lag1) / CASE WHEN ABS(total_section_i_equity_lag1) = 0 THEN 1 ELSE ABS(total_section_i_equity_lag1) END AS equity_mom_growth,
+    (receivables_total - receivables_total_lag1) / CASE WHEN ABS(receivables_total_lag1) = 0 THEN 1 ELSE ABS(receivables_total_lag1) END AS receivables_mom_growth,
+    (cash_total - cash_total_lag1) / CASE WHEN ABS(cash_total_lag1) = 0 THEN 1 ELSE ABS(cash_total_lag1) END AS cash_mom_growth,
+    (current_liabilities - current_liabilities_lag1) / CASE WHEN ABS(current_liabilities_lag1) = 0 THEN 1 ELSE ABS(current_liabilities_lag1) END AS current_liabilities_mom_growth,
+    (short_term_bank_loans - short_term_bank_loans_lag1) / CASE WHEN ABS(short_term_bank_loans_lag1) = 0 THEN 1 ELSE ABS(short_term_bank_loans_lag1) END AS short_term_bank_loans_mom_growth,
+    (overdue_current_payables - overdue_current_payables_lag1) / CASE WHEN ABS(overdue_current_payables_lag1) = 0 THEN 1 ELSE ABS(overdue_current_payables_lag1) END AS overdue_current_payables_mom_growth,
+    
+    (total_assets - total_assets_lag3) / CASE WHEN ABS(total_assets_lag3) = 0 THEN 1 ELSE ABS(total_assets_lag3) END AS total_assets_qoq_growth,
+    (total_section_i_equity - total_section_i_equity_lag3) / CASE WHEN ABS(total_section_i_equity_lag3) = 0 THEN 1 ELSE ABS(total_section_i_equity_lag3) END AS equity_qoq_growth,
+    (receivables_total - receivables_total_lag3) / CASE WHEN ABS(receivables_total_lag3) = 0 THEN 1 ELSE ABS(receivables_total_lag3) END AS receivables_qoq_growth,
+    (cash_total - cash_total_lag3) / CASE WHEN ABS(cash_total_lag3) = 0 THEN 1 ELSE ABS(cash_total_lag3) END AS cash_qoq_growth,
+    (current_liabilities - current_liabilities_lag3) / CASE WHEN ABS(current_liabilities_lag3) = 0 THEN 1 ELSE ABS(current_liabilities_lag3) END AS current_liabilities_qoq_growth,
+    (short_term_bank_loans - short_term_bank_loans_lag3) / CASE WHEN ABS(short_term_bank_loans_lag3) = 0 THEN 1 ELSE ABS(short_term_bank_loans_lag3) END AS short_term_bank_loans_qoq_growth,
+    (overdue_current_payables - overdue_current_payables_lag3) / CASE WHEN ABS(overdue_current_payables_lag3) = 0 THEN 1 ELSE ABS(overdue_current_payables_lag3) END AS overdue_current_payables_qoq_growth,
+    
+    (cash_total - cash_total_lag1) / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS cash_change_to_assets,
+    (current_payables_included - current_payables_included_lag1) / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS payables_change_to_assets,
+    ((long_term_bank_loans + short_term_bank_loans) - (long_term_bank_loans_lag1 + short_term_bank_loans_lag1)) / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS bank_debt_change_to_assets,
+    ((total_section_ii_assets - current_liabilities) - (total_section_ii_assets_lag1 - current_liabilities_lag1)) / CASE WHEN total_assets = 0 THEN 1 ELSE total_assets END AS working_capital_change_to_assets,
+
+    -- volatility columns: assuming ROLLING_STD_4Q is defined elsewhere
+    STDDEV_SAMP(total_assets) OVER (
+        PARTITION BY inn 
+        ORDER BY report_date 
+        ROWS BETWEEN 3 PRECEDING AND CURRENT ROW
+    ) AS assets_volatility_4q,
+
+    STDDEV_SAMP(current_liabilities) OVER (
+        PARTITION BY inn 
+        ORDER BY report_date 
+        ROWS BETWEEN 3 PRECEDING AND CURRENT ROW
+    ) AS current_liabilities_volatility_4q,
+
+    STDDEV_SAMP(cash_total) OVER (
+        PARTITION BY inn 
+        ORDER BY report_date 
+        ROWS BETWEEN 3 PRECEDING AND CURRENT ROW
+    ) AS cash_volatility_4q
+
+
+FROM balance_base;
